@@ -221,15 +221,13 @@ export function PostingsEditClient({ posting }: { posting: Opportunity }) {
                 >
                   <option value="draft">Draft</option>
                   <option value="published">Published</option>
-                  <option value="closed">Closed</option>
-                  <option value="archived">Archived</option>
+                  <option value="archived">Closed / Archived</option>
                 </select>
               </div>
               <p className="text-xs text-muted-foreground pt-1">
                 {status === "draft" && "Only visible to you."}
                 {status === "published" && "Live and accepting applications."}
-                {status === "closed" && "No longer accepting applications."}
-                {status === "archived" && "Archived and hidden from lists."}
+                {status === "archived" && "Archived and hidden from lists. No longer accepting applications."}
               </p>
             </div>
           </div>

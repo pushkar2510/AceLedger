@@ -92,11 +92,20 @@ function TestCard({ test }: { test: CandidateTest }) {
     <Card className="border">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1 min-w-0">
-            <CardTitle className="text-base leading-snug">{test.title}</CardTitle>
+          <div className="space-y-1.5 min-w-0 flex-1">
+            {test.inviter_company ? (
+              <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-0">
+                Invited by {test.inviter_company}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="border-dashed text-muted-foreground bg-muted/50">
+                Public Test
+              </Badge>
+            )}
+            <CardTitle className="text-base leading-snug pt-1">{test.title}</CardTitle>
             <CardDescription
               className={cn(
-                "text-xs",
+                "text-xs pt-0.5",
                 test.description
                   ? "line-clamp-2"
                   : "italic text-muted-foreground/60"
@@ -105,7 +114,9 @@ function TestCard({ test }: { test: CandidateTest }) {
               {test.description ?? "No description provided"}
             </CardDescription>
           </div>
-          <StatusBadge status={test.derived_status} />
+          <div className="shrink-0 mt-1">
+            <StatusBadge status={test.derived_status} />
+          </div>
         </div>
       </CardHeader>
 
@@ -188,7 +199,7 @@ function TestCard({ test }: { test: CandidateTest }) {
         {/* Actions */}
         <div className="mt-auto">
           <Button asChild variant="outline" size="sm">
-            <Link href={`tests/${test.id}`}>View Details</Link>
+            <Link href={`/~/tests/${test.id}`}>View Details</Link>
           </Button>
         </div>
 

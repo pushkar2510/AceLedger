@@ -197,9 +197,9 @@ function ChipList({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function ResumeAnalyzerClient() {
+export function ResumeAnalyzerClient({ initialDescription = "" }: { initialDescription?: string }) {
   const [file, setFile] = React.useState<File | null>(null)
-  const [jobDescription, setJobDescription] = React.useState("")
+  const [jobDescription, setJobDescription] = React.useState(initialDescription)
   const [isAnalyzing, setIsAnalyzing] = React.useState(false)
   const [result, setResult] = React.useState<ResumeAnalysisResult | null>(null)
   const [isDragOver, setIsDragOver] = React.useState(false)

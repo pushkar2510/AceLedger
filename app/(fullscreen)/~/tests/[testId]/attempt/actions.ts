@@ -53,7 +53,7 @@ export async function startAttemptAction(testId: string): Promise<AttemptInfo> {
   if (!candidateProfile || !candidateProfile.profile_complete || !candidateProfile.profile_updated) {
     throw new Error("Profile is incomplete")
   }
-  if (!test || test.status !== "published" || test.recruiter_id !== candidateProfile.recruiter_id) {
+  if (!test || test.status !== "published") {
     throw new Error("Test not available")
   }
 

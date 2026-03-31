@@ -9,11 +9,14 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { Search, MapPin, GraduationCap, CheckCircle2, FlaskConical, ExternalLink } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Search, MapPin, GraduationCap, CheckCircle2, FlaskConical, ExternalLink, ChevronDown, Briefcase, FileText } from "lucide-react"
+import { AssignTestDialog } from "./AssignTestDialog"
 
 export function RecruiterCandidatesClient({ candidates }: { candidates: any[] }) {
   const [search, setSearch] = useState("")
   const [showOnlyTested, setShowOnlyTested] = useState(false)
+  const [assignTestCandidate, setAssignTestCandidate] = useState<any | null>(null)
 
   const filtered = useMemo(() => {
     return candidates.filter(c => {
@@ -139,9 +142,25 @@ export function RecruiterCandidatesClient({ candidates }: { candidates: any[] })
                     <Button variant="outline" size="sm" asChild className="h-8">
                       <Link href={`/~/candidates/${c.profile_id}`}>View Profile</Link>
                     </Button>
-                    <Button variant="secondary" size="sm" className="h-8 group-hover:bg-primary group-hover:text-primary-foreground transition-colors" asChild>
-                       <Link href={`/~/postings/new/edit?invite=${c.profile_id}`}>Invite <ExternalLink className="h-3 w-3 ml-1.5" /></Link>
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="secondary" size="sm" className="h-8 w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                          Invite <ChevronDown className="h-3 w-3 ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/~/postings/new/edit?invite=${c.profile_id}`} className="cursor-pointer">
+                            <Briefcase className="h-4 w-4 mr-2 text-muted-foreground" />
+                            To Job Posting
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setAssignTestCandidate(c)} className="cursor-pointer">
+                          <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
+                          Assign Test
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardContent>
               </Card>
@@ -149,6 +168,12 @@ export function RecruiterCandidatesClient({ candidates }: { candidates: any[] })
           </div>
         )}
       </div>
+
+      <AssignTestDialog 
+        isOpen={!!assignTestCandidate} 
+        onOpenChange={(open) => !open && setAssignTestCandidate(null)} 
+        candidate={assignTestCandidate} 
+      />
     </div>
   )
 }

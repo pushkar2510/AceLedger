@@ -409,12 +409,12 @@ export function RecruiterSettingsClient({ userProfile, initialData }: Props) {
       const { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(newPath, file, { upsert: false, contentType: file.type })
-      if (uploadError) throw uploadError
+      if (uploadError) throw new Error(uploadError.message || JSON.stringify(uploadError))
       const { error: dbError } = await supabase
         .from("recruiter_profiles")
         .update({ logo_path: newPath })
         .eq("profile_id", userProfile.id);
-      if (dbError) throw dbError
+      if (dbError) throw new Error(dbError.message || JSON.stringify(dbError))
 
       // Sync with global profiles table and Auth metadata
       await supabase.from("profiles").update({ avatar_path: newPath }).eq("id", userProfile.id)
@@ -426,9 +426,9 @@ export function RecruiterSettingsClient({ userProfile, initialData }: Props) {
       URL.revokeObjectURL(blobUrl)
       toast.success("Logo updated!")
       router.refresh() // Update sidebar/layout
-    } catch (err) {
-      console.error(err)
-      toast.error("Failed to upload logo. Please try again.")
+    } catch (err: any) {
+      console.error("Logo upload error:", err.message || err)
+      toast.error(err.message || "Failed to upload logo. Please try again.")
       setLogoSrc(getStorageUrl(supabase, "avatars", storedLogoPath.current))
       URL.revokeObjectURL(blobUrl)
     } finally {

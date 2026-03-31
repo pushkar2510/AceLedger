@@ -9,13 +9,13 @@ export const metadata = {
   description: "Create or edit a job posting",
 }
 
-export default async function EditPostingPage({ params }: { params: { opportunityId: string } }) {
+export default async function EditPostingPage({ params }: { params: Promise<{ opportunityId: string }> }) {
   const profile = await getUserProfile()
   if (!profile || profile.account_type !== "recruiter") {
     redirect("/~/home")
   }
 
-  const { opportunityId } = params
+  const { opportunityId } = await params
 
   let posting: Opportunity | null = null
 

@@ -69,11 +69,6 @@ const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
 
 type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid" | "unchanged";
 
-interface RecruiterOption {
-  profile_id: string;
-  company_name: string;
-}
-
 interface Props {
   userProfile: UserProfile;
   initialData: Record<string, any> | null;
@@ -335,8 +330,7 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
   const [permanentAddress, setPermanentAddress] = useState(initialData?.permanent_address ?? "");
 
   // Education
-  const [recruiterId, setRecruiterId] = useState<string>(initialData?.recruiter_id ?? "");
-  const [recruiterName, setRecruiterName] = useState("");
+  const [collegeName, setCollegeName] = useState(initialData?.college_name ?? "");
   const [courseName, setCourseName] = useState(initialData?.course_name ?? "");
   const [passoutYear, setPassoutYear] = useState(
     initialData?.passout_year ? String(initialData.passout_year) : ""
@@ -376,11 +370,6 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
   const [portfolioLinks, setPortfolioLinks] = useState<string[]>(
     initialData?.portfolio_links?.length ? initialData.portfolio_links : [""]
   );
-
-  // Recruiter lookup
-  const [recruiters, setRecruiters] = useState<RecruiterOption[]>([]);
-  const [availableCourses, setAvailableCourses] = useState<string[]>([]);
-  const [selectedAffiliation, setSelectedAffiliation] = useState<string | null>(null);
 
   // Login History
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
@@ -429,6 +418,7 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
   const handleAadhaarNumber = markDirty(setAadhaarNumber);
   const handleCurrentAddress = markDirty(setCurrentAddress);
   const handlePermanentAddress = markDirty(setPermanentAddress);
+  const handleCollegeName = markDirty(setCollegeName);
   const handleCourseName = markDirty(setCourseName);
   const handlePassoutYear = markDirty(setPassoutYear);
   const handleSscPercentage = markDirty(setSscPercentage);
@@ -481,25 +471,7 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
 
-  // ─── Load recruiters ─────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("recruiter_profiles")
-        .select("profile_id, company_name")
-        .order("company_name");
-      if (data) {
-        setRecruiters(data);
-        if (initialData?.recruiter_id) {
-          const found = data.find((i) => i.profile_id === initialData.recruiter_id);
-          if (found) {
-            setRecruiterName(found.company_name);
-          }
-        }
-      }
-    })();
-  }, []);
 
 
 
@@ -531,11 +503,11 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
       const { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(newPath, file, { upsert: false, contentType: file.type });
-      if (uploadError) throw uploadError;
+      if (uploadError) throw new Error(uploadError.message || JSON.stringify(uploadError));
       const { error: dbError } = await supabase
         .from("candidate_profiles")
         .upsert({ profile_id: userProfile.id, profile_image_path: newPath }, { onConflict: "profile_id" });
-      if (dbError) throw dbError;
+      if (dbError) throw new Error(dbError.message || JSON.stringify(dbError));
 
       // Sync with global profiles table and Auth metadata
       await supabase.from("profiles").update({ avatar_path: newPath }).eq("id", userProfile.id);
@@ -547,9 +519,9 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
       URL.revokeObjectURL(blobUrl);
       toast.success("Profile picture updated!");
       router.refresh(); // Update sidebar/layout
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to upload profile picture. Please try again.");
+    } catch (err: any) {
+      console.error("Avatar upload error:", err.message || err);
+      toast.error(err.message || "Failed to upload profile picture. Please try again.");
       setAvatarSrc(getStorageUrl(supabase, "avatars", storedImagePath.current));
       URL.revokeObjectURL(blobUrl);
     } finally {
@@ -558,21 +530,7 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
     }
   }
 
-  // ─── Recruiter select ────────────────────────────────────────────────────────
 
-  function handleRecruiterSelect(name: string | null) {
-    if (!name) {
-      setRecruiterId(""); setRecruiterName(""); setAvailableCourses([]); setSelectedAffiliation(null); setIsDirty(true); return;
-    }
-    const found = recruiters.find((i) => i.recruiter_name === name);
-    if (found) {
-      setRecruiterId(found.profile_id);
-      setRecruiterName(found.recruiter_name);
-      setAvailableCourses(found.courses ?? []);
-      setSelectedAffiliation(found.affiliation ?? null);
-      setIsDirty(true);
-    }
-  }
 
   // ─── SGPA ────────────────────────────────────────────────────────────────────
 
@@ -725,22 +683,17 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
     if (usernameStatus === "taken") e.username = "This username is already taken.";
     if (usernameStatus === "checking") e.username = "Please wait for username availability check.";
     if (!firstName.trim()) e.firstName = "First name is required";
-    if (!middleName.trim()) e.middleName = "Middle name is required";
     if (!lastName.trim()) e.lastName = "Last name is required";
     if (!gender) e.gender = "Gender is required";
     if (!phoneNumber.trim()) e.phoneNumber = "Contact number is required";
     else if (!/^[0-9]{10}$/.test(phoneNumber)) e.phoneNumber = "Must be exactly 10 digits";
     if (!dateOfBirth) e.dateOfBirth = "Date of birth is required";
-    if (!recruiterId) e.recruiter = "Institution is required";
-    if (!courseName) e.courseName = "Course/branch is required";
+    if (!courseName.trim()) e.courseName = "Course/branch is required";
     if (!passoutYear) e.passoutYear = "Expected graduation year is required";
-    if (!sscPercentage) e.sscPercentage = "SSC percentage is required";
-    if (!sscPassYear) e.sscPassYear = "SSC passing year is required";
-    if (!isHsc && !isDiploma) e.educationAfterSsc = "Select at least one option (HSC or Diploma)";
-    if (isHsc && !hscPercentage) e.hscPercentage = "HSC percentage is required";
-    if (isHsc && !hscPassYear) e.hscPassYear = "HSC passing year is required";
-    if (isDiploma && !diplomaPercentage) e.diplomaPercentage = "Diploma percentage is required";
-    if (isDiploma && !diplomaPassYear) e.diplomaPassYear = "Diploma passing year is required";
+    if (isHsc && hscPercentage && (Number(hscPercentage) < 0 || Number(hscPercentage) > 100))
+      e.hscPercentage = "Must be 0–100";
+    if (isDiploma && diplomaPercentage && (Number(diplomaPercentage) < 0 || Number(diplomaPercentage) > 100))
+      e.diplomaPercentage = "Must be 0–100";
     if (selectedSkills.length === 0) e.skills = "Select at least one skill";
     if (aadhaarNumber && !/^[0-9]{12}$/.test(aadhaarNumber))
       e.aadhaarNumber = "Aadhaar must be exactly 12 digits";
@@ -761,7 +714,7 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
     setAadhaarNumber(initialData?.aadhaar_number ?? "");
     setCurrentAddress(initialData?.current_address ?? "");
     setPermanentAddress(initialData?.permanent_address ?? "");
-    setRecruiterId(initialData?.recruiter_id ?? "");
+    setCollegeName(initialData?.college_name ?? "");
     setCourseName(initialData?.course_name ?? "");
     setPassoutYear(initialData?.passout_year ? String(initialData.passout_year) : "");
     setSscPercentage(initialData?.ssc_percentage != null ? String(initialData.ssc_percentage) : "");
@@ -823,8 +776,8 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
         aadhaar_number: aadhaarNumber.trim() || null,
         current_address: currentAddress.trim() || null,
         permanent_address: permanentAddress.trim() || null,
-        recruiter_id: recruiterId || null,
-        course_name: courseName || null,
+        college_name: collegeName.trim() || null,
+        course_name: courseName.trim() || null,
         passout_year: passoutYear ? Number(passoutYear) : null,
         ssc_percentage: sscPercentage ? Number(sscPercentage) : null,
         ssc_pass_year: sscPassYear ? Number(sscPassYear) : null,
@@ -888,7 +841,7 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
 
   // ─── Render ───────────────────────────────────────────────────────────────────
 
-  const recruiterNames = recruiters.map((i) => i.recruiter_name);
+
   const usernameMsg = usernameStatusMessage(usernameStatus);
 
   return (
@@ -1027,8 +980,8 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
                     <FieldError message={errors.firstName} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Middle Name<RequiredMark /></Label>
-                    <Input placeholder="Middle name" value={middleName} onChange={(e) => handleMiddleName(e.target.value)} />
+                    <Label>Middle Name</Label>
+                    <Input placeholder="Middle name (optional)" value={middleName} onChange={(e) => handleMiddleName(e.target.value)} />
                     <FieldError message={errors.middleName} />
                   </div>
                   <div className="space-y-2">
@@ -1127,39 +1080,23 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Institution<RequiredMark /></Label>
-                  <Combobox items={recruiterNames} value={recruiterName} onValueChange={handleRecruiterSelect}>
-                    <ComboboxInput placeholder="Search institution…" />
-                    <ComboboxContent>
-                      <ComboboxEmpty>No institution found.</ComboboxEmpty>
-                      <ComboboxList>
-                        {(item: string) => <ComboboxItem key={item} value={item}>{item}</ComboboxItem>}
-                      </ComboboxList>
-                    </ComboboxContent>
-                  </Combobox>
-                  {selectedAffiliation && (
-                    <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
-                      <ShieldAlert className="h-3.5 w-3.5" />
-                      Affiliated to {selectedAffiliation}
-                    </p>
-                  )}
-                  <FieldError message={errors.recruiter} />
+                  <Label>College / University</Label>
+                  <Input
+                    placeholder="e.g. MIT Pune, IIT Bombay"
+                    value={collegeName}
+                    onChange={(e) => handleCollegeName(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Your current or most recent educational institution</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Branch / Course<RequiredMark /></Label>
-                    <Combobox items={availableCourses} value={courseName} onValueChange={(v) => handleCourseName(v)} disabled={!recruiterId}>
-                      <ComboboxInput
-                        placeholder={!recruiterId ? "Select institution first" : availableCourses.length ? "Select course" : "No courses available"}
-                      />
-                      <ComboboxContent>
-                        <ComboboxEmpty>No course found.</ComboboxEmpty>
-                        <ComboboxList>
-                          {(item: string) => <ComboboxItem key={item} value={item}>{item}</ComboboxItem>}
-                        </ComboboxList>
-                      </ComboboxContent>
-                    </Combobox>
+                    <Input
+                      placeholder="e.g. Computer Engineering, B.Tech IT"
+                      value={courseName}
+                      onChange={(e) => handleCourseName(e.target.value)}
+                    />
                     <FieldError message={errors.courseName} />
                   </div>
                   <div className="space-y-2">
@@ -1203,15 +1140,16 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
                 </div>
 
                 <Separator />
+                <p className="text-xs text-muted-foreground">The fields below are optional — fill them in if applicable to strengthen your profile.</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>SSC Percentage<RequiredMark /></Label>
+                    <Label>SSC / 10th Percentage</Label>
                     <Input placeholder="e.g. 85.60" type="number" step={0.01} min={0} max={100} value={sscPercentage} onChange={(e) => handleSscPercentage(e.target.value)} />
                     <FieldError message={errors.sscPercentage} />
                   </div>
                   <div className="space-y-2">
-                    <Label>SSC Passing Year<RequiredMark /></Label>
+                    <Label>SSC Passing Year</Label>
                     <Combobox items={YEAR_OPTIONS} value={sscPassYear} onValueChange={(v) => handleSscPassYear(v)}>
                       <ComboboxInput placeholder="Select year" />
                       <ComboboxContent>
@@ -1226,11 +1164,11 @@ export function CandidateSettingsClient({ userProfile, initialData }: Props) {
                 </div>
 
                 <div className="space-y-3">
-                  <Label>Education After SSC<RequiredMark /></Label>
+                  <Label>Education After SSC</Label>
                   <div className="flex gap-6">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={isHsc} onChange={(e) => handleIsHsc(e.target.checked)} className="h-4 w-4 accent-primary" />
-                      <span className="text-sm">HSC</span>
+                      <span className="text-sm">HSC / 12th</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={isDiploma} onChange={(e) => handleIsDiploma(e.target.checked)} className="h-4 w-4 accent-primary" />

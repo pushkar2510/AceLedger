@@ -22,33 +22,47 @@ export const metadata = {
 async function fetchCandidateTests(userId: string): Promise<CandidateTest[]> {
   const supabase = await createClient()
 
-  // 1. Resolve the candidate's recruiter
-  const { data: candidateProfile } = await supabase
-    .from("candidate_profiles")
-    .select("recruiter_id")
-    .eq("profile_id", userId)
-    .maybeSingle()
+  // 1. Fetch public tests
+  const { data: publicTests } = await supabase
+    .from("tests")
+    .select("id, title, description, time_limit_seconds, available_from, available_until, results_available")
+    .eq("status", "published")
 
-  if (!candidateProfile?.recruiter_id) {
-    return []
+  // 2. Fetch test invitations
+  const { data: invitations } = await (supabase as any)
+    .from("test_invitations")
+    .select(`
+      test_id,
+      tests (id, title, description, time_limit_seconds, available_from, available_until, results_available),
+      recruiter_profiles!inner(company_name)
+    `)
+    .eq("candidate_id", userId)
+    .eq("status", "pending")
+
+  // 3. Merge them (deduplicate)
+  const testMap = new Map<string, any>()
+  
+  if (publicTests) {
+    publicTests.forEach(t => testMap.set(t.id, { ...t, inviter_company: undefined }))
   }
 
-  // 2. Fetch published tests
-  const testsQuery = supabase
-    .from("tests")
-    .select(
-      "id, title, description, time_limit_seconds, available_from, available_until, results_available"
-    )
-    .eq("status", "published")
-    .eq("recruiter_id", candidateProfile.recruiter_id)
-    .order("available_from", { ascending: false })
+  if (invitations) {
+    invitations.forEach((inv: any) => {
+      const t = Array.isArray(inv.tests) ? inv.tests[0] : inv.tests;
+      const rName = Array.isArray(inv.recruiter_profiles) ? inv.recruiter_profiles[0]?.company_name : inv.recruiter_profiles?.company_name;
+      if (t) {
+         // If a test is public but they were also explicitly invited, show the invitation badge
+         testMap.set(t.id, { ...t, inviter_company: rName || "Unknown Company" })
+      }
+    })
+  }
 
-  const { data: rawTests } = await testsQuery
-  if (!rawTests?.length) return []
+  const rawTests = Array.from(testMap.values())
+  if (!rawTests.length) return []
 
-  const testIds = rawTests.map((t) => t.id)
+  const testIds = rawTests.map(t => t.id)
 
-  // 5. Fetch candidate's latest attempts per test
+  // 4. Fetch candidate's latest attempts per test
   const { data: rawAttempts } = await supabase
     .from("test_attempts")
     .select("test_id, status, submitted_at, score, total_marks, percentage")
@@ -56,7 +70,7 @@ async function fetchCandidateTests(userId: string): Promise<CandidateTest[]> {
     .in("test_id", testIds)
     .order("created_at", { ascending: false })
 
-  // 4. Build a raw attempt map
+  // 5. Build raw attempt map
   const rawAttemptMap: Record<string, {
     status: "in_progress" | "submitted"
     submitted_at?: string
@@ -94,17 +108,25 @@ async function fetchCandidateTests(userId: string): Promise<CandidateTest[]> {
       id: t.id,
       title: t.title,
       description: t.description ?? undefined,
-      time_limit_seconds: t.time_limit_seconds ?? undefined,   // ← undefined = no limit
+      time_limit_seconds: t.time_limit_seconds ?? undefined,
       available_from: t.available_from ?? undefined,
-      available_until: t.available_until ?? undefined,         // ← included
+      available_until: t.available_until ?? undefined,
       derived_status: deriveStatus(
         "published",
         t.available_from,
         t.available_until
       ) as CandidateTest["derived_status"],
       results_available: t.results_available,
+      inviter_company: t.inviter_company,
       attempt,
     }
+  }).sort((a, b) => {
+    // Sort invited tests first, then by available_from descending
+    if (a.inviter_company && !b.inviter_company) return -1
+    if (!a.inviter_company && b.inviter_company) return 1
+    const da = a.available_from ? new Date(a.available_from).getTime() : 0
+    const db = b.available_from ? new Date(b.available_from).getTime() : 0
+    return db - da
   })
 }
 

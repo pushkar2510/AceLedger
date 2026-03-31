@@ -5,8 +5,8 @@ import { RecruiterPostingsClient } from "./RecruiterPostingsClient"
 import type { Opportunity, OpportunityStatus } from "./_types"
 
 export const metadata = {
-  title: "Job Postings",
-  description: "Manage Job Postings and Opportunities",
+  title: "Job Postings | ATS",
+  description: "Manage Job Postings and Applicant Tracking",
 }
 
 async function fetchRecruiterPostings(userId: string): Promise<Opportunity[]> {
@@ -14,14 +14,24 @@ async function fetchRecruiterPostings(userId: string): Promise<Opportunity[]> {
 
   const { data: rawOpportunities } = await supabase
     .from("opportunities")
-    .select(`
-      *,
-      applications (id)
-    `)
+    .select(`*`)
     .eq("recruiter_id", userId)
     .order("created_at", { ascending: false })
 
-  return (rawOpportunities ?? []).map((o): Opportunity => ({
+  if (!rawOpportunities?.length) return []
+
+  const oppIds = rawOpportunities.map(o => o.id)
+  const { data: appCounts } = await supabase
+    .from("applications")
+    .select("opportunity_id")
+    .in("opportunity_id", oppIds)
+
+  const countMap: Record<string, number> = {}
+  for (const row of (appCounts ?? []) as { opportunity_id: string }[]) {
+    countMap[row.opportunity_id] = (countMap[row.opportunity_id] ?? 0) + 1
+  }
+
+  return rawOpportunities.map((o): Opportunity => ({
     id: o.id,
     recruiter_id: o.recruiter_id,
     title: o.title,
@@ -37,7 +47,7 @@ async function fetchRecruiterPostings(userId: string): Promise<Opportunity[]> {
     status: (o.status as OpportunityStatus) ?? "draft",
     created_at: o.created_at,
     updated_at: o.updated_at || o.created_at,
-    application_count: o.applications?.length ?? 0
+    application_count: countMap[o.id] ?? 0,
   }))
 }
 
@@ -50,10 +60,8 @@ export default async function PostingsPage() {
     return <RecruiterPostingsClient postings={postings} />
   }
 
-  // Add functionality for admin later, or candidate routing
   if (profile.account_type === "candidate") {
-     // Usually candidates will go to /jobs
-     return <div>Candidate view not implemented here yet. Go to /jobs</div>
+    redirect("/~/jobs")
   }
 
   redirect("/~/home")

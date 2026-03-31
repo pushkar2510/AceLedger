@@ -20,3 +20,21 @@ export interface Opportunity {
   // Derived/Joined fields
   application_count?: number;
 }
+
+export type ApplicationStatus = "pending" | "applied" | "reviewing" | "shortlisted" | "rejected" | "hired";
+
+export interface RecruiterApplication {
+  id: string;
+  opportunity_id: string;
+  candidate_id: string;
+  status: ApplicationStatus;
+  resume_path?: string;
+  cover_letter?: string;
+  applied_at: string;
+  updated_at: string;
+
+  // Joined candidate profile
+  candidate_name?: string;
+  candidate_email?: string;
+  candidate_university?: string;
+}

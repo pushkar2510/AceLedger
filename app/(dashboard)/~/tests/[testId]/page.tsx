@@ -44,7 +44,7 @@ async function fetchCandidateView(
         id, title, description, instructions, time_limit_seconds, 
         available_from, available_until, results_available, status, recruiter_id,
         shuffle_questions, shuffle_options,
-        recruiter:recruiter_profiles(recruiter_name),
+        recruiter:recruiter_profiles(company_name),
         questions (
           id, question_text, marks, explanation, order_index,
           options (id, option_text, is_correct, order_index),
@@ -69,7 +69,8 @@ async function fetchCandidateView(
   const candidateProfile = profileRes.data
   const raw = testRes.data
 
-  if (!candidateProfile?.recruiter_id || !raw || raw.status !== "published" || raw.recruiter_id !== candidateProfile.recruiter_id) {
+  if (!candidateProfile || !raw || raw.status !== "published") {
+    if (testRes.error) console.error("fetchCandidateView Error:", testRes.error);
     notFound()
   }
 
@@ -84,7 +85,7 @@ async function fetchCandidateView(
     results_available: raw.results_available,
     shuffle_questions: raw.shuffle_questions,
     shuffle_options: raw.shuffle_options,
-    recruiter_name: (raw.recruiter as any)?.recruiter_name ?? null,
+    recruiter_name: (raw.recruiter as any)?.company_name ?? null,
     questions: (raw.questions ?? []).map((q: any) => ({ marks: q.marks })),
   }
 
@@ -157,7 +158,7 @@ async function fetchRecruiterView(
     .select(`
       id, title, description, instructions, time_limit_seconds, 
       available_from, available_until, status, results_available, recruiter_id,
-      recruiter:recruiter_profiles(recruiter_name),
+      recruiter:recruiter_profiles(company_name),
       questions (
         id, question_text, question_type, marks, order_index, explanation, 
         options (id, option_text, is_correct, order_index),
@@ -174,7 +175,10 @@ async function fetchRecruiterView(
     .order("started_at", { foreignTable: "view_test_results_detailed", ascending: false })
     .single()
 
-  if (error || !raw) notFound()
+  if (error || !raw) {
+    if (error) console.error("fetchRecruiterView Error:", error);
+    notFound()
+  }
 
   const questions: RecruiterQuestion[] = (raw.questions ?? []).map((q: any) => ({
     id: q.id,
@@ -226,7 +230,7 @@ async function fetchRecruiterView(
     available_until: raw.available_until ?? null,
     status: raw.status as "draft" | "published" | "archived",
     results_available: raw.results_available,
-    recruiter_name: (raw.recruiter as any)?.recruiter_name ?? null,
+    recruiter_name: (raw.recruiter as any)?.company_name ?? null,
     questions,
     attempts,
   }

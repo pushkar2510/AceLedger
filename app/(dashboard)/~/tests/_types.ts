@@ -23,6 +23,7 @@ export interface CandidateTest {
   derived_status: DerivedCandidateStatus
   results_available: boolean
   attempt?: CandidateTestAttempt
+  inviter_company?: string           // ← added for invited tests
 }
 
 export interface RecruiterTest {
