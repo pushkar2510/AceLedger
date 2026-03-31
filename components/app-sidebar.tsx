@@ -54,6 +54,7 @@ const NAV_MAIN: Record<AccountType, NavItem[]> = {
     { title: "Tests", url: "/~/tests", icon: IconChartBar },
     { title: "Resume Builder", url: "/~/resume", icon: IconFileDescription },
     { title: "Resume Analyzer", url: "/~/resume-analyzer", icon: IconFileAnalytics },
+    { title: "Project Intelligence", url: "/~/git-scrapper", icon: IconBriefcase2 },
     { title: "Events", url: "/~/events", icon: IconCalendarEvent },
     { title: "Portfolio", url: "/~/portfolio", icon: IconCalendarEvent },
   ],
@@ -73,6 +74,7 @@ const NAV_MAIN: Record<AccountType, NavItem[]> = {
     { title: "Talent Pool", url: "/~/candidates", icon: IconTargetArrow },
     { title: "Tests", url: "/~/tests", icon: IconChartBar },
     { title: "Reports", url: "/~/reports", icon: IconReport },
+    { title: "Project Intelligence", url: "/~/git-scrapper", icon: IconBriefcase2 },
   ],
 }
 
